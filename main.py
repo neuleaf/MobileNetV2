@@ -40,7 +40,11 @@ def parse_args():
 def main():
     # parse arguments
     args=parse_args()
-    sess=tf.Session()
+
+    if args.cpu:
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+    sess = tf.Session()
 
     if args.is_train:
         datas=[]
