@@ -72,7 +72,7 @@ class MobileNetV2(object):
         with tf.variable_scope('mobilenetv2', reuse=reuse):
             net = conv2d_block(X, 32, 3, 2, w_d, is_train, name='conv1_1')  # size/2
 
-            net = res_block(net, exp, 16, 1, w_d, is_train, name='res1_1', shortcut=False)
+            net = res_block(net, exp, 16, 1, w_d, is_train, name='res1_1')
 
             net = res_block(net, exp, 24, 2, w_d, is_train, name='res2_1')  # size/4
             net = res_block(net, exp, 24, 1, w_d, is_train, name='res2_2')
@@ -94,11 +94,11 @@ class MobileNetV2(object):
             net = res_block(net, exp, 160, 1, w_d, is_train, name='res6_2')
             net = res_block(net, exp, 160, 1, w_d, is_train, name='res6_3')
 
-            net = res_block(net, exp, 320, 1, w_d, is_train, name='res7_1', shortcut=False)
+            net = res_block(net, exp, 320, 1, w_d, is_train, name='res7_1')
 
-            net = pwise_block(net, 1280, w_d, is_train, name='conv8_1')
+            net = pwise_block(net, 1280, w_d, is_train, name='conv8_1', bias=False)
             net = global_avg(net)
-            logits = flatten(conv_1x1(net, self.n_classes, w_d, name='logits'))
+            logits = flatten(conv_1x1(net, self.n_classes, w_d, name='logits', bias=False))
 
             pred=tf.nn.softmax(logits, name='prob')
             return logits, pred

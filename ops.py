@@ -15,15 +15,15 @@ def batch_norm(x, momentum=0.9, epsilon=1e-5, train=True, name='bn'):
                       scope=name)
 
 
-def conv2d(input_, output_dim, k_h, k_w, d_h, d_w, weight_decay, stddev=0.02, name='conv2d'):
+def conv2d(input_, output_dim, k_h, k_w, d_h, d_w, weight_decay, stddev=0.02, name='conv2d', bias=True):
   with tf.variable_scope(name):
     w = tf.get_variable('w', [k_h, k_w, input_.get_shape()[-1], output_dim],
               initializer=tf.truncated_normal_initializer(stddev=stddev),
                   regularizer=tf.contrib.layers.l2_regularizer(weight_decay))
     conv = tf.nn.conv2d(input_, w, strides=[1, d_h, d_w, 1], padding='SAME')
-
-    biases = tf.get_variable('biases', [output_dim], initializer=tf.constant_initializer(0.0))
-    conv = tf.nn.bias_add(conv, biases)
+    if bias:
+        biases = tf.get_variable('biases', [output_dim], initializer=tf.constant_initializer(0.0))
+        conv = tf.nn.bias_add(conv, biases)
 
     return conv
 
@@ -36,13 +36,13 @@ def conv2d_block(input, out_dim, k, s, weight_decay, is_train, name):
         return net
 
 
-def conv_1x1(input, output_dim, weight_decay, name):
+def conv_1x1(input, output_dim, weight_decay, name, bias=True):
     with tf.name_scope(name):
         return conv2d(input, output_dim, 1,1,1,1, weight_decay,stddev=0.02, name=name)
 
-def pwise_block(input, output_dim, weight_decay, is_train, name):
+def pwise_block(input, output_dim, weight_decay, is_train, name, bias=True):
     with tf.name_scope(name):
-        out=conv_1x1(input, output_dim, weight_decay, name)
+        out=conv_1x1(input, output_dim, weight_decay, name, bias)
         out=batch_norm(out, train=is_train, name='pwb')
         out=relu(out)
         return out
