@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument('--is_train', dest='is_train', action='store_true')
     parser.add_argument('--no_train', dest='is_train', action='store_false')
     parser.add_argument('--learning_rate', type=float, default=0.001)
+    parser.add_argument('--lr_decay', type=float, default=0.98)
     parser.add_argument('--beta1', type=float, default=0.9)
     parser.add_argument('--checkpoint_dir', type=str, default='checkpoints')
     parser.add_argument('--logs_dir', type=str, default='logs')
@@ -63,7 +64,7 @@ def main():
 
         model=MobileNetV2(sess=sess, dataset=np.array(datas), epoch=args.epoch, batch_size=args.batch_size,
                       image_height=args.image_height, image_width=args.image_width, n_classes=args.n_classes,
-                      is_train=args.is_train, learning_rate=args.learning_rate, beta1=args.beta1,
+                      is_train=args.is_train, learning_rate=args.learning_rate, lr_decay=args.lr_decay,beta1=args.beta1,
                       chkpt_dir=args.checkpoint_dir, logs_dir=args.logs_dir,
                       model_name=args.model_name, rand_crop=args.rand_crop)
         model._build_train_graph()

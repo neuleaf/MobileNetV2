@@ -6,7 +6,7 @@ import time
 
 class MobileNetV2(object):
     def __init__(self, sess, dataset, epoch, batch_size, image_height, image_width, n_classes,
-                 learning_rate, beta1, chkpt_dir, logs_dir, model_name, rand_crop=False, is_train=True):
+                 learning_rate, lr_decay, beta1, chkpt_dir, logs_dir, model_name, rand_crop=False, is_train=True):
         self.dataset=dataset
         self.model_name=model_name
         self.h=image_height
@@ -15,7 +15,8 @@ class MobileNetV2(object):
         self.n_classes=n_classes
         self.epoch=epoch
         self.batch_size=batch_size
-        self.lr=learning_rate
+        self.learning_rate=learning_rate
+        self.lr_decay=lr_decay
         self.train=is_train
         self.beta1=beta1
         self.sess=sess
@@ -43,19 +44,23 @@ class MobileNetV2(object):
         correct_pred=tf.equal(tf.argmax(pred, 1), self.y_)
         acc=tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
-        # summary
-        tf.summary.scalar('Loss', loss)
-        tf.summary.scalar('accuracy', acc)
-        tf.summary.scalar('learning_rate', self.lr)
-        self.summary_op=tf.summary.merge_all()
-
+        # learning rate decay
+        lr_decay_step=self.dataset.shape[0] // self.batch_size # every epoch
+        lr=tf.train.exponential_decay(self.learning_rate, global_step=self.global_step, decay_steps=lr_decay_step, decay_rate=self.lr_decay)
         # optimizer
         # tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=0.9, momentum=0.9)
-        self.train_op=tf.train.AdamOptimizer(learning_rate=self.lr, beta1=self.beta1).minimize(loss, global_step=self.global_step)
+        self.train_op=tf.train.AdamOptimizer(learning_rate=lr, beta1=self.beta1).minimize(loss, global_step=self.global_step)
+
+        # summary
+        tf.summary.scalar('loss', loss)
+        tf.summary.scalar('accuracy', acc)
+        tf.summary.scalar('learning_rate', lr)
+        self.summary_op = tf.summary.merge_all()
 
         # accesible points
         self.loss=loss
         self.acc=acc
+        self.lr=lr
 
     def _nets(self, X, reuse=False):
         with tf.variable_scope('mobilenetv2', reuse=reuse):
@@ -153,15 +158,15 @@ class MobileNetV2(object):
 
                 feed_dict={self.x_:batch_images, self.y_:batch_labels}
                 # train
-                _, step=sess.run([self.train_op, self.global_step], feed_dict=feed_dict)
+                _, lr, step=sess.run([self.train_op, self.lr, self.global_step], feed_dict=feed_dict)
 
                 # print logs and write summary
                 if step % 20 == 0:
                     summ, loss, acc = sess.run([self.summary_op, self.loss, self.acc],
                                                        feed_dict=feed_dict)
                     writer.add_summary(summ, step)
-                    print('epoch: {}, global_step: {}, batch_idx: {}, time: {}, acc: {}, loss: {}'.format
-                        (epoch, step, idx, time.time()-start_time, acc, loss))
+                    print('epoch:{0}, global_step:{1}, batch_idx:{2}, time:{3:.3f}, lr:{4:.8f}, acc:{5:.6f}, loss:{6:.6f}'.format
+                        (epoch, step, idx, time.time()-start_time, lr, acc, loss))
 
                 # save model
                 if np.mod(step, 500)==0:
