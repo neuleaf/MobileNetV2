@@ -17,6 +17,7 @@ class MobileNetV2(object):
         self.batch_size=batch_size
         self.learning_rate=learning_rate
         self.lr_decay=lr_decay
+        self.weight_decay=0.00004
         self.train=is_train
         self.beta1=beta1
         self.sess=sess
@@ -34,11 +35,13 @@ class MobileNetV2(object):
         logits, pred=self._nets(self.x_)
 
         # loss
-        loss=tf.reduce_mean(
+        loss_=tf.reduce_mean(
             tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y_, logits=logits))
-
-        vars=tf.get_collection(tf.GraphKeys.TABLE_INITIALIZERS, scope='mobilenetv2')
-        update_ops=tf.get_collection(tf.GraphKeys.UPDATE_OPS, scope='mobilenetv2')
+        # L2 regularization
+        # when use 'tf.GraphKeys.REGULARIZATION_LOSSES', it get the default collection in which
+        # the weight defined with 'regularizer=xxx'
+        l2_loss=tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+        loss=tf.add(loss_, l2_loss)
 
         # evaluate model, for classification
         correct_pred=tf.equal(tf.argmax(pred, 1), self.y_)
@@ -63,39 +66,42 @@ class MobileNetV2(object):
         self.lr=lr
 
     def _nets(self, X, reuse=False):
+        w_d=self.weight_decay
+        exp=6 # expansion ratio
+        is_train=self.train
         with tf.variable_scope('mobilenetv2', reuse=reuse):
-            net = conv2d_block(input=X, out_dim=32, k=3, s=2, name='conv1_1', is_train=self.train)  # size/2
+            net = conv2d_block(X, 32, 3, 2, w_d, is_train, name='conv1_1')  # size/2
 
-            net = res_block(net, expansion_ratio=6, out_put_dim=16, stride=1, name='res1_1', is_train=self.train, hyperlink=False)
+            net = res_block(net, exp, 16, 1, w_d, is_train, name='res1_1', shortcut=False)
 
-            net = res_block(net, expansion_ratio=6, out_put_dim=24, stride=2, name='res2_1', is_train=self.train)  # size/4
-            net = res_block(net, expansion_ratio=6, out_put_dim=24, stride=1, name='res2_2', is_train=self.train)
+            net = res_block(net, exp, 24, 2, w_d, is_train, name='res2_1')  # size/4
+            net = res_block(net, exp, 24, 1, w_d, is_train, name='res2_2')
 
-            net = res_block(net, expansion_ratio=6, out_put_dim=32, stride=2, name='res3_1', is_train=self.train)  # size/8
-            net = res_block(net, expansion_ratio=6, out_put_dim=32, stride=1, name='res3_2', is_train=self.train)
-            net = res_block(net, expansion_ratio=6, out_put_dim=32, stride=1, name='res3_3', is_train=self.train)
+            net = res_block(net, exp, 32, 2, w_d, is_train, name='res3_1')  # size/8
+            net = res_block(net, exp, 32, 1, w_d, is_train, name='res3_2')
+            net = res_block(net, exp, 32, 1, w_d, is_train, name='res3_3')
 
-            net = res_block(net, expansion_ratio=6, out_put_dim=64, stride=1, name='res4_1', is_train=self.train)
-            net = res_block(net, expansion_ratio=6, out_put_dim=64, stride=1, name='res4_2', is_train=self.train)
-            net = res_block(net, expansion_ratio=6, out_put_dim=64, stride=1, name='res4_3', is_train=self.train)
-            net = res_block(net, expansion_ratio=6, out_put_dim=64, stride=1, name='res4_4', is_train=self.train)
+            net = res_block(net, exp, 64, 1, w_d, is_train, name='res4_1')
+            net = res_block(net, exp, 64, 1, w_d, is_train, name='res4_2')
+            net = res_block(net, exp, 64, 1, w_d, is_train, name='res4_3')
+            net = res_block(net, exp, 64, 1, w_d, is_train, name='res4_4')
 
-            net = res_block(net, expansion_ratio=6, out_put_dim=96, stride=2, name='res5_1', is_train=self.train)  # size/16
-            net = res_block(net, expansion_ratio=6, out_put_dim=96, stride=1, name='res5_2', is_train=self.train)
-            net = res_block(net, expansion_ratio=6, out_put_dim=96, stride=1, name='res5_3', is_train=self.train)
+            net = res_block(net, exp, 96, 2, w_d, is_train, name='res5_1')  # size/16
+            net = res_block(net, exp, 96, 1, w_d, is_train, name='res5_2')
+            net = res_block(net, exp, 96, 1, w_d, is_train, name='res5_3')
 
-            net = res_block(net, expansion_ratio=6, out_put_dim=160, stride=2, name='res6_1', is_train=self.train)  # size/32
-            net = res_block(net, expansion_ratio=6, out_put_dim=160, stride=1, name='res6_2', is_train=self.train)
-            net = res_block(net, expansion_ratio=6, out_put_dim=160, stride=1, name='res6_3', is_train=self.train)
+            net = res_block(net, exp, 160, 2, w_d, is_train, name='res6_1')  # size/32
+            net = res_block(net, exp, 160, 1, w_d, is_train, name='res6_2')
+            net = res_block(net, exp, 160, 1, w_d, is_train, name='res6_3')
 
-            net = res_block(net, expansion_ratio=6, out_put_dim=320, stride=1, name='res7_1', is_train=self.train)
+            net = res_block(net, exp, 320, 1, w_d, is_train, name='res7_1', shortcut=False)
 
-            net = conv_1x1(net, output_dim=1280, name='conv8_1')
+            net = pwise_block(net, 1280, w_d, is_train, name='conv8_1')
             net = global_avg(net)
-            logits = conv_1x1(net, output_dim=self.n_classes, name='logits')
+            logits = flatten(conv_1x1(net, self.n_classes, w_d, name='logits'))
 
-            pred=tf.nn.softmax(flatten(logits), name='prob')
-            return flatten(logits), pred
+            pred=tf.nn.softmax(logits, name='prob')
+            return logits, pred
 
     def load(self, checkpoint_dir):
         import re
@@ -167,6 +173,9 @@ class MobileNetV2(object):
                     writer.add_summary(summ, step)
                     print('epoch:{0}, global_step:{1}, batch_idx:{2}, time:{3:.3f}, lr:{4:.8f}, acc:{5:.6f}, loss:{6:.6f}'.format
                         (epoch, step, idx, time.time()-start_time, lr, acc, loss))
+
+                # validation
+                # TODO
 
                 # save model
                 if np.mod(step, 500)==0:
