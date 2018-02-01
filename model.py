@@ -24,7 +24,7 @@ class MobileNetV2(object):
         self.checkpoint_dir=chkpt_dir
         self.logs_dir=logs_dir
         self.rand_crop=rand_crop
-        self.renew=True
+        self.renew=False
 
     def _build_train_graph(self):
         self.x_=tf.placeholder(tf.float32, [None, self.h, self.w, 3], name='input')
@@ -103,20 +103,20 @@ class MobileNetV2(object):
             pred=tf.nn.softmax(logits, name='prob')
             return logits, pred
 
-    def load(self, checkpoint_dir):
+    def load(self, saver, checkpoint_dir):
         import re
-        print(" [*] Reading checkpoints...")
-        checkpoint_dir = os.path.join(checkpoint_dir, self.model_name)
+        print("[*] Reading checkpoints...")
+        checkpoint_dir = os.path.join(checkpoint_dir)
 
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
-            self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
             counter = int(next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
-            print(" [*] Success to read {}".format(ckpt_name))
+            print("[*] Success to read {}".format(ckpt_name))
             return True, counter
         else:
-            print(" [*] Failed to find a checkpoint")
+            print("[*] Failed to find a checkpoint")
             return False, 0
 
     def _train(self):
@@ -135,20 +135,18 @@ class MobileNetV2(object):
 
         # restore check-point if exists
         if not self.renew:
-            could_load, _=self.load(self.checkpoint_dir)
+            print('[*] Try to load trained model...')
+            could_load, step=self.load(saver, self.checkpoint_dir)
             if could_load:
-                print('load model from ', self.checkpoint_dir)
-            else:
-                print('No trained model to load.')
+                tf.assign(self.global_step, step)
 
-        start_epoch=0
-
+        step=0
         # how many batches DATA can be split into
         batch_idxs = self.dataset.shape[0] // self.batch_size
         # loop for epoch
         start_time=time.time()
         print('START TRAINING...')
-        for epoch in range(start_epoch, self.epoch):
+        for epoch in range(0, self.epoch):
             start_batch_idx = 0
             # shuffle datas
             np.random.shuffle(self.dataset)
@@ -182,6 +180,6 @@ class MobileNetV2(object):
                     saver.save(sess, os.path.join(self.checkpoint_dir, self.model_name), global_step=step)
 
         # save the last model when finish training
-        save_path=saver.save(self.sess, os.path.join(self.checkpoint_dir, self.model_name))
+        save_path=saver.save(self.sess, os.path.join(self.checkpoint_dir, self.model_name), global_step= step)
         print('Final model saved in '+save_path)
         print('FINISHED TRAINING.')

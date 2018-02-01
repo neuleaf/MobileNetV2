@@ -13,7 +13,7 @@ def parse_args():
 
     parser.add_argument('--dataset_txt', type=str, help='txt file, store image name and label')
     parser.add_argument('--dataset_dir', type=str, help='train image dir')
-    parser.add_argument('--epoch', type=int, default=25)
+    parser.add_argument('--epoch', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--n_classes', type=int)
     parser.add_argument('--image_height', type=int, default=224)
