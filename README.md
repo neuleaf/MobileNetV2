@@ -10,7 +10,7 @@
 
 2. 训练
    
-   run `python main.py --epoch 10 --dataset_dir ./tfrecords --n_classes 2 --batch_size 4 --num_samples 20000 [--options]`启动训练
+   run `python main.py --epoch 10 --dataset_dir ./tfrecords --n_classes 2 --batch_size 4 --num_samples 20000 [--options]`启动训练.
    注意更改参数
 3. test/infer
 
