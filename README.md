@@ -2,6 +2,7 @@
 论文链接 https://arxiv.org/abs/1801.04381
 ## Task1 classification
 1. 制作tfrecord文件
+   
    训练图片及类别标签组织为`train_data.txt`的形式，每一行表示一个样本及其标签，用空格或Tab隔开.
    
    run `python convert2tf.py [--options]` 生成tfrecord文件。
