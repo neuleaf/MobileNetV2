@@ -110,7 +110,6 @@ class MobileNetV2(object):
     def load(self, saver, checkpoint_dir):
         import re
         print("[*] Reading checkpoints...")
-        checkpoint_dir = os.path.join(checkpoint_dir)
 
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         if ckpt and ckpt.model_checkpoint_path:
@@ -134,25 +133,24 @@ class MobileNetV2(object):
         # summary writer
         writer=tf.summary.FileWriter(self.logs_dir, self.sess.graph)
 
-        # restore check-point if exists
-        if not self.renew:
-            print('[*] Try to load trained model...')
-            could_load, step=self.load(saver, self.checkpoint_dir)
-            if could_load:
-                tf.assign(self.global_step, step)
-
         total_step = int(self.num_samples / self.batch_size * self.epoch)
 
         # read queue
         filename_queue = tf.train.string_input_producer(self.tf_files, num_epochs=None)
         img_batch, label_batch = get_batch(filename_queue, self.batch_size)
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
         # init
         init = tf.global_variables_initializer()
         sess.run(init)
 
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+        # restore check-point if exists
+        if not self.renew:
+            print('[*] Try to load trained model...')
+            could_load, step = self.load(saver, self.checkpoint_dir)
+            if could_load:
+                tf.assign(self.global_step, step)
 
         print('START TRAINING...')
         start_time = time.time()
@@ -165,10 +163,10 @@ class MobileNetV2(object):
             # print logs and write summary
             if step % 10 == 0:
                 summ, loss, acc = sess.run([self.summary_op, self.loss, self.acc],
-                                                    feed_dict=feed_dict)
+                                            feed_dict=feed_dict)
                 writer.add_summary(summ, step)
                 print('global_step:{0}, time:{1:.3f}, lr:{2:.8f}, acc:{3:.6f}, loss:{4:.6f}'.format
-                    (step, time.time()-start_time, lr, acc, loss))
+                     (step, time.time()-start_time, lr, acc, loss))
 
             # validation
             # TODO
