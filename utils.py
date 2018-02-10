@@ -1,36 +1,73 @@
 import numpy as np
+import tensorflow as tf
 from scipy.misc import imread, imresize, imsave
 
 
-def get_image(path, shape, resize_len=None, rand_crop=False):
-    '''
-    shape: [height, width], correct shape to feed in the network
-    return: processed image as shape of SHAPE
-    '''
-    img=imread(path)
-    height, width, _ = img.shape
-
-    if rand_crop:
-        if resize_len==None:
-            resize_len=shape[0]*2 #
-        if height < width:
-            new_height = resize_len
-            new_width  = int(width * new_height / height)
-        else:
-            new_width  = resize_len
-            new_height = int(height * new_width / width)
-        # random crop
-        img= imresize(img, [new_height, new_width], interp='nearest')
-        start_h = np.random.choice(new_height - shape[0] + 1)
-        start_w = np.random.choice(new_width - shape[1] + 1)
-        img = img[start_h:(start_h + shape[0]), start_w:(start_w + shape[1]), :]
-    else:
-        img=imresize(img, size=shape)
+def preprocess(image):
+    img = 2.0 / 255.0 * image - 1.0
     return img
 
-def get_train_images(paths, shape, resize_len, rand_crop=False):
-    images=[]
-    for path in paths:
-        images.append(get_image(path, shape, resize_len, rand_crop))
-    images = np.stack(images, axis=0)
-    return images
+# tfrecord example features
+def int64_feature(value):
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+
+def int64_list_feature(value):
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
+
+
+def bytes_feature(value):
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+
+def bytes_list_feature(value):
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=value))
+
+
+def float_list_feature(value):
+  return tf.train.Feature(float_list=tf.train.FloatList(value=value))
+
+
+# read tf_record
+def read_tfrecord(filename_queue):
+    feature = {'image/encoded': tf.FixedLenFeature([], tf.string),
+               'image/height': tf.FixedLenFeature([], tf.int64),
+               'image/width': tf.FixedLenFeature([], tf.int64),
+               'image/label': tf.FixedLenFeature([], tf.int64)}
+
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(filename_queue)
+
+    features = tf.parse_single_example(serialized_example, features=feature)
+
+    image  = tf.decode_raw(features['image/encoded'], tf.uint8)
+    height = tf.cast(features['image/height'],tf.int32)
+    width  = tf.cast(features['image/width'], tf.int32)
+    label  = tf.cast(features['image/label'], tf.int32)
+    img = tf.reshape(image, [height, width, 3])
+
+    # preprocess
+    img = tf.image.resize_images(img, [224, 224])
+
+    img = tf.cast(img, tf.float32) * (2. / 255) - 1.0
+
+    return img, label
+
+def get_batch(infile, batch_size, num_threads=4, shuffle=False, min_after_dequeue=None):
+    # 使用batch，img的shape必须是静态常量
+    image, label = read_tfrecord(infile)
+
+    if min_after_dequeue is None:
+        min_after_dequeue = batch_size * 10
+    capacity = min_after_dequeue + 3 * batch_size
+
+    if shuffle:
+        img_batch, label_batch = tf.train.shuffle_batch([image, label], batch_size=batch_size,
+                                                    capacity=capacity,num_threads=num_threads,
+                                                    min_after_dequeue=min_after_dequeue)
+    else:
+        img_batch, label_batch = tf.train.batch([image, label], batch_size,
+                                                capacity=capacity, num_threads=num_threads,
+                                                allow_smaller_final_batch=True)
+
+    return img_batch, label_batch

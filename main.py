@@ -1,7 +1,9 @@
 from model import MobileNetV2
+from utils import preprocess
 import argparse
 import tensorflow as tf
 import os
+import glob
 import numpy as np
 import time
 from scipy.misc import imread, imresize
@@ -11,8 +13,8 @@ def parse_args():
     parser=argparse.ArgumentParser()
     parser.add_mutually_exclusive_group(required=False)
 
-    parser.add_argument('--dataset_txt', type=str, help='txt file, store image name and label')
-    parser.add_argument('--dataset_dir', type=str, help='train image dir')
+    parser.add_argument('--dataset_dir', type=str, default='./tfrecords', help='tfrecord file dir')
+    parser.add_argument('--num_samples', type=int, help='the number of train samples')
     parser.add_argument('--epoch', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--n_classes', type=int)
@@ -48,13 +50,9 @@ def main():
     sess = tf.Session()
 
     if args.is_train:
-        datas=[]
-        # read train images and labels
-        with open(args.dataset_txt,'r') as file:
-            for line in file:
-                f_name, label=line.strip().split()
-                path=os.path.join(args.dataset_dir, f_name)
-                datas.append([path, int(label)])
+        # read tfrecord files
+        glob_pattern=os.path.join(args.dataset_dir, '*.tfrecord')
+        tfrecords_list = glob.glob(glob_pattern)
 
         # check dirs
         if not os.path.exists(args.checkpoint_dir):
@@ -62,16 +60,20 @@ def main():
         if not os.path.exists(args.logs_dir):
             os.makedirs(args.logs_dir)
 
-        model=MobileNetV2(sess=sess, dataset=np.array(datas), epoch=args.epoch, batch_size=args.batch_size,
-                      image_height=args.image_height, image_width=args.image_width, n_classes=args.n_classes,
-                      is_train=args.is_train, learning_rate=args.learning_rate, lr_decay=args.lr_decay,beta1=args.beta1,
+        model=MobileNetV2(sess=sess, tf_files=tfrecords_list, num_sampes=args.num_samples,
+                      epoch=args.epoch, batch_size=args.batch_size,
+                      image_height=args.image_height, image_width=args.image_width,
+                      n_classes=args.n_classes,
+                      is_train=args.is_train, learning_rate=args.learning_rate,
+                      lr_decay=args.lr_decay,beta1=args.beta1,
                       chkpt_dir=args.checkpoint_dir, logs_dir=args.logs_dir,
                       model_name=args.model_name, rand_crop=args.rand_crop)
         model._build_train_graph()
         model._train()
     else:
         # restore model
-        saver = tf.train.import_meta_graph(os.path.join(args.checkpoint_dir,args.model_name+'.meta'))
+        saver = tf.train.import_meta_graph(
+            os.path.join(args.checkpoint_dir,args.model_name+'-200.meta'))
         saver.restore(sess, tf.train.latest_checkpoint(args.checkpoint_dir))
 
         # get input and output tensors from graph
@@ -82,6 +84,7 @@ def main():
 
         # prepare eval/test data and label
         img=imread('data/tmp/art01.jpg')
+        img=preprocess(img)
         img = imresize(img, (args.image_height, args.image_width))
         label=1
         feed_dict={input_x:[img],input_y:[label]} # use [], because we need 4-D tensor

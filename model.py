@@ -5,9 +5,10 @@ import time
 
 
 class MobileNetV2(object):
-    def __init__(self, sess, dataset, epoch, batch_size, image_height, image_width, n_classes,
+    def __init__(self, sess, tf_files, num_sampes, epoch, batch_size, image_height, image_width, n_classes,
                  learning_rate, lr_decay, beta1, chkpt_dir, logs_dir, model_name, rand_crop=False, is_train=True):
-        self.dataset=dataset
+        self.tf_files=tf_files # tfrecord list
+        self.num_samples=num_sampes
         self.model_name=model_name
         self.h=image_height
         self.w=image_width
@@ -38,17 +39,16 @@ class MobileNetV2(object):
         loss_=tf.reduce_mean(
             tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y_, logits=logits))
         # L2 regularization
-        # when use 'tf.GraphKeys.REGULARIZATION_LOSSES', it get the default collection in which
-        # the weight defined with 'regularizer=xxx'
-        l2_loss=tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
-        loss=tf.add(loss_, l2_loss)
+        l2_loss=tf.add_n([tf.nn.l2_loss(v) for v in tf.trainable_variables()
+                          if 'bn' not in v.name and 'bias' not in v.name])
+        loss=loss_ + self.weight_decay*l2_loss
 
         # evaluate model, for classification
         correct_pred=tf.equal(tf.argmax(pred, 1), self.y_)
         acc=tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
         # learning rate decay
-        lr_decay_step=self.dataset.shape[0] // self.batch_size # every epoch
+        lr_decay_step=self.num_samples // self.batch_size # every epoch
         lr=tf.train.exponential_decay(self.learning_rate, global_step=self.global_step, decay_steps=lr_decay_step, decay_rate=self.lr_decay)
         # optimizer
         # tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=0.9, momentum=0.9)
@@ -65,40 +65,44 @@ class MobileNetV2(object):
         self.acc=acc
         self.lr=lr
 
+    def build_test_graph(self):
+        self.x_ = tf.placeholder(tf.float32, [None, self.h, self.w, 3], name='input')
+        self.y_ = tf.placeholder(tf.int64, [None], name='label')
+        _, _ = self._nets(self.x_)
+
     def _nets(self, X, reuse=False):
-        w_d=self.weight_decay
         exp=6 # expansion ratio
         is_train=self.train
         with tf.variable_scope('mobilenetv2', reuse=reuse):
-            net = conv2d_block(X, 32, 3, 2, w_d, is_train, name='conv1_1')  # size/2
+            net = conv2d_block(X, 32, 3, 2, is_train, name='conv1_1')  # size/2
 
-            net = res_block(net, exp, 16, 1, w_d, is_train, name='res1_1')
+            net = res_block(net, exp, 16, 1, is_train, name='res2_1')
 
-            net = res_block(net, exp, 24, 2, w_d, is_train, name='res2_1')  # size/4
-            net = res_block(net, exp, 24, 1, w_d, is_train, name='res2_2')
+            net = res_block(net, exp, 24, 2, is_train, name='res3_1')  # size/4
+            net = res_block(net, exp, 24, 1, is_train, name='res3_2')
 
-            net = res_block(net, exp, 32, 2, w_d, is_train, name='res3_1')  # size/8
-            net = res_block(net, exp, 32, 1, w_d, is_train, name='res3_2')
-            net = res_block(net, exp, 32, 1, w_d, is_train, name='res3_3')
+            net = res_block(net, exp, 32, 2, is_train, name='res4_1')  # size/8
+            net = res_block(net, exp, 32, 1, is_train, name='res4_2')
+            net = res_block(net, exp, 32, 1, is_train, name='res4_3')
 
-            net = res_block(net, exp, 64, 1, w_d, is_train, name='res4_1')
-            net = res_block(net, exp, 64, 1, w_d, is_train, name='res4_2')
-            net = res_block(net, exp, 64, 1, w_d, is_train, name='res4_3')
-            net = res_block(net, exp, 64, 1, w_d, is_train, name='res4_4')
+            net = res_block(net, exp, 64, 1, is_train, name='res5_1')
+            net = res_block(net, exp, 64, 1, is_train, name='res5_2')
+            net = res_block(net, exp, 64, 1, is_train, name='res5_3')
+            net = res_block(net, exp, 64, 1, is_train, name='res5_4')
 
-            net = res_block(net, exp, 96, 2, w_d, is_train, name='res5_1')  # size/16
-            net = res_block(net, exp, 96, 1, w_d, is_train, name='res5_2')
-            net = res_block(net, exp, 96, 1, w_d, is_train, name='res5_3')
+            net = res_block(net, exp, 96, 2, is_train, name='res6_1')  # size/16
+            net = res_block(net, exp, 96, 1, is_train, name='res6_2')
+            net = res_block(net, exp, 96, 1, is_train, name='res6_3')
 
-            net = res_block(net, exp, 160, 2, w_d, is_train, name='res6_1')  # size/32
-            net = res_block(net, exp, 160, 1, w_d, is_train, name='res6_2')
-            net = res_block(net, exp, 160, 1, w_d, is_train, name='res6_3')
+            net = res_block(net, exp, 160, 2, is_train, name='res7_1')  # size/32
+            net = res_block(net, exp, 160, 1, is_train, name='res7_2')
+            net = res_block(net, exp, 160, 1, is_train, name='res7_3')
 
-            net = res_block(net, exp, 320, 1, w_d, is_train, name='res7_1')
+            net = res_block(net, exp, 320, 1,  is_train, name='res8_1')
 
-            net = pwise_block(net, 1280, w_d, is_train, name='conv8_1', bias=False)
+            net = pwise_block(net, 1280,  is_train, name='conv9_1')
             net = global_avg(net)
-            logits = flatten(conv_1x1(net, self.n_classes, w_d, name='logits', bias=False))
+            logits = flatten(conv_1x1(net, self.n_classes,  name='logits'))
 
             pred=tf.nn.softmax(logits, name='prob')
             return logits, pred
@@ -123,9 +127,6 @@ class MobileNetV2(object):
         """train
         """
         sess=self.sess
-        # initialize all variables
-        init=tf.global_variables_initializer()
-        sess.run(init)
 
         # saver for save/restore model
         saver=tf.train.Saver()
@@ -140,25 +141,62 @@ class MobileNetV2(object):
             if could_load:
                 tf.assign(self.global_step, step)
 
-        step=0
+        total_step = int(self.num_samples / self.batch_size * self.epoch)
+
+        # read queue
+        filename_queue = tf.train.string_input_producer(self.tf_files, num_epochs=None)
+        img_batch, label_batch = get_batch(filename_queue, self.batch_size)
+
+        # init
+        init = tf.global_variables_initializer()
+        sess.run(init)
+
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+
+        print('START TRAINING...')
+        start_time = time.time()
+        while not coord.should_stop() and self.global_step.eval(session=sess) < total_step:
+            batch_images, batch_labels=sess.run([img_batch, label_batch])
+            feed_dict={self.x_:batch_images, self.y_:batch_labels}
+             # train
+            _, lr, step=sess.run([self.train_op, self.lr, self.global_step], feed_dict=feed_dict)
+
+            # print logs and write summary
+            if step % 10 == 0:
+                summ, loss, acc = sess.run([self.summary_op, self.loss, self.acc],
+                                                    feed_dict=feed_dict)
+                writer.add_summary(summ, step)
+                print('global_step:{0}, time:{1:.3f}, lr:{2:.8f}, acc:{3:.6f}, loss:{4:.6f}'.format
+                    (step, time.time()-start_time, lr, acc, loss))
+
+            # validation
+            # TODO
+
+            # save model
+            if step % 500 == 0:
+                    save_path=saver.save(sess, os.path.join(self.checkpoint_dir, self.model_name), global_step=step)
+                    print('Current model saved in '+save_path)
+
+
+        '''
         # how many batches DATA can be split into
         batch_idxs = self.dataset.shape[0] // self.batch_size
         # loop for epoch
-        start_time=time.time()
-        print('START TRAINING...')
+        
         for epoch in range(0, self.epoch):
             start_batch_idx = 0
             # shuffle datas
             np.random.shuffle(self.dataset)
 
             for idx in range(start_batch_idx, batch_idxs):
-                batch_files=self.dataset[idx*self.batch_size:(idx+1)*self.batch_size, :]
+                batch_files=self.dataset[idx*self.batch_size:(idx+1)*self.batch_size]
                 x_files=batch_files[:,0]
                 batch=[get_image(path, self.shape, rand_crop=self.rand_crop) for path in x_files]
                 batch_images=np.array(batch).astype(np.float32)
 
                 # here we don't need one hot label, because loss defined as tf.SPARSE_xxx_cross_entropy
-                batch_labels=batch_files[:,1]
+                batch_labels=[int(l) for l in batch_files[:,1]]
 
                 feed_dict={self.x_:batch_images, self.y_:batch_labels}
                 # train
@@ -178,6 +216,7 @@ class MobileNetV2(object):
                 # save model
                 if np.mod(step, 500)==0:
                     saver.save(sess, os.path.join(self.checkpoint_dir, self.model_name), global_step=step)
+        '''
 
         # save the last model when finish training
         save_path=saver.save(self.sess, os.path.join(self.checkpoint_dir, self.model_name), global_step= step)
