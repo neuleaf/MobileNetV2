@@ -47,7 +47,11 @@ def read_tfrecord(filename_queue):
     img = tf.reshape(image, [height, width, 3])
 
     # preprocess
-    img = tf.image.resize_images(img, [224, 224])
+    # center_crop
+    img = tf.image.resize_images(img, [256, 256])
+    j = int(round((256 - 224) / 2.))
+    i = int(round((256 - 224) / 2.))
+    img = img[j:j+224, i:i+224, :]
 
     img = tf.cast(img, tf.float32) * (2. / 255) - 1.0
 

@@ -64,6 +64,7 @@ class MobileNetV2(object):
         self.loss=loss
         self.acc=acc
         self.lr=lr
+        self.pred=tf.argmax(pred, 1)
 
     def build_test_graph(self):
         self.x_ = tf.placeholder(tf.float32, [None, self.h, self.w, 3], name='input')
@@ -76,12 +77,12 @@ class MobileNetV2(object):
         with tf.variable_scope('mobilenetv2', reuse=reuse):
             net = conv2d_block(X, 32, 3, 2, is_train, name='conv1_1')  # size/2
 
-            net = res_block(net, exp, 16, 1, is_train, name='res2_1')
+            net = res_block(net, 1, 16, 1, is_train, name='res2_1')
 
-            net = res_block(net, exp, 24, 2, is_train, name='res3_1')  # size/4
+            net = res_block(net, exp, 24, 2, is_train, name='res3_1') # size/4
             net = res_block(net, exp, 24, 1, is_train, name='res3_2')
 
-            net = res_block(net, exp, 32, 2, is_train, name='res4_1')  # size/8
+            net = res_block(net, exp, 32, 2, is_train, name='res4_1') # size/8
             net = res_block(net, exp, 32, 1, is_train, name='res4_2')
             net = res_block(net, exp, 32, 1, is_train, name='res4_3')
 
@@ -98,7 +99,7 @@ class MobileNetV2(object):
             net = res_block(net, exp, 160, 1, is_train, name='res7_2')
             net = res_block(net, exp, 160, 1, is_train, name='res7_3')
 
-            net = res_block(net, exp, 320, 1,  is_train, name='res8_1')
+            net = res_block(net, exp, 320, 1, is_train, name='res8_1', shortcut=False)
 
             net = pwise_block(net, 1280,  is_train, name='conv9_1')
             net = global_avg(net)
@@ -129,11 +130,8 @@ class MobileNetV2(object):
 
         # saver for save/restore model
         saver=tf.train.Saver()
-
         # summary writer
         writer=tf.summary.FileWriter(self.logs_dir, self.sess.graph)
-
-        total_step = int(self.num_samples / self.batch_size * self.epoch)
 
         # read queue
         filename_queue = tf.train.string_input_producer(self.tf_files, num_epochs=None)
@@ -151,6 +149,7 @@ class MobileNetV2(object):
             could_load, step = self.load(saver, self.checkpoint_dir)
             if could_load:
                 tf.assign(self.global_step, step)
+        total_step = int(self.num_samples / self.batch_size * self.epoch)
 
         print('START TRAINING...')
         start_time = time.time()
@@ -158,11 +157,11 @@ class MobileNetV2(object):
             batch_images, batch_labels=sess.run([img_batch, label_batch])
             feed_dict={self.x_:batch_images, self.y_:batch_labels}
              # train
-            _, lr, step=sess.run([self.train_op, self.lr, self.global_step], feed_dict=feed_dict)
+            _, lr, step, pred=sess.run([self.train_op, self.lr, self.global_step, self.pred], feed_dict=feed_dict)
 
             # print logs and write summary
             if step % 10 == 0:
-                summ, loss, acc = sess.run([self.summary_op, self.loss, self.acc],
+                summ, loss, acc= sess.run([self.summary_op, self.loss, self.acc],
                                             feed_dict=feed_dict)
                 writer.add_summary(summ, step)
                 print('global_step:{0}, time:{1:.3f}, lr:{2:.8f}, acc:{3:.6f}, loss:{4:.6f}'.format

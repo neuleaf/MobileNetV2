@@ -4,7 +4,6 @@ import argparse
 import tensorflow as tf
 import os
 import glob
-import numpy as np
 import time
 from scipy.misc import imread, imresize
 
