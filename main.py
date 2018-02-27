@@ -71,12 +71,6 @@ def main():
         model._build_train_graph()
         model._train()
     else:
-        # restore model
-        # saver = tf.train.import_meta_graph(
-        #    os.path.join(args.checkpoint_dir,args.model_name+'-4000.meta'))
-        # saver.restore(sess, tf.train.latest_checkpoint(args.checkpoint_dir))
-
-        #
         model=MobileNetV2(sess=sess, tf_files='', num_sampes=args.num_samples,
                       epoch=args.epoch, batch_size=args.batch_size,
                       image_height=args.image_height, image_width=args.image_width,
@@ -88,14 +82,13 @@ def main():
         model._build_test_graph()
         saver=tf.train.Saver()
         ckpt = tf.train.get_checkpoint_state(args.checkpoint_dir)
-        import re
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
             saver.restore(sess, os.path.join(args.checkpoint_dir, ckpt_name))
-            counter = int(next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
             print("[*] Success to read {}".format(ckpt_name))
         else:
             print("[*] Failed to find a checkpoint")
+            return
 
         # get input and output tensors from graph
         graph = tf.get_default_graph()
