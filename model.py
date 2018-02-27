@@ -33,7 +33,7 @@ class MobileNetV2(object):
 
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
 
-        logits, pred=self._nets(self.x_)
+        logits, pred=self._nets(self.x_, is_train=True)
 
         # loss
         loss_=tf.reduce_mean(
@@ -48,11 +48,13 @@ class MobileNetV2(object):
         acc=tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
         # learning rate decay
-        lr_decay_step=self.num_samples // self.batch_size # every epoch
+        lr_decay_step=self.num_samples // self.batch_size *2 # every epoch
         lr=tf.train.exponential_decay(self.learning_rate, global_step=self.global_step, decay_steps=lr_decay_step, decay_rate=self.lr_decay)
         # optimizer
-        # tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=0.9, momentum=0.9)
-        self.train_op=tf.train.AdamOptimizer(learning_rate=lr, beta1=self.beta1).minimize(loss, global_step=self.global_step)
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            # tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=0.9, momentum=0.9)
+            self.train_op=tf.train.AdamOptimizer(learning_rate=lr, beta1=self.beta1).minimize(loss, global_step=self.global_step)
 
         # summary
         tf.summary.scalar('loss', loss)
@@ -66,14 +68,13 @@ class MobileNetV2(object):
         self.lr=lr
         self.pred=tf.argmax(pred, 1)
 
-    def build_test_graph(self):
+    def _build_test_graph(self):
         self.x_ = tf.placeholder(tf.float32, [None, self.h, self.w, 3], name='input')
         self.y_ = tf.placeholder(tf.int64, [None], name='label')
-        _, _ = self._nets(self.x_)
+        _, _ = self._nets(self.x_, is_train=False)
 
-    def _nets(self, X, reuse=False):
+    def _nets(self, X, is_train, reuse=False):
         exp=6 # expansion ratio
-        is_train=self.train
         with tf.variable_scope('mobilenetv2', reuse=reuse):
             net = conv2d_block(X, 32, 3, 2, is_train, name='conv1_1')  # size/2
 
@@ -158,7 +159,7 @@ class MobileNetV2(object):
             feed_dict={self.x_:batch_images, self.y_:batch_labels}
              # train
             _, lr, step, pred=sess.run([self.train_op, self.lr, self.global_step, self.pred], feed_dict=feed_dict)
-
+            print(pred)
             # print logs and write summary
             if step % 10 == 0:
                 summ, loss, acc= sess.run([self.summary_op, self.loss, self.acc],

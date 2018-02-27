@@ -4,7 +4,12 @@ from scipy.misc import imread, imresize, imsave
 
 
 def preprocess(image):
+    # subtract mean
+    mean=np.array([123.68, 116.779, 103.939])
+    image=image-mean
+    # scale to [-1, 1]
     img = 2.0 / 255.0 * image - 1.0
+    # return value should be float!
     return img
 
 # tfrecord example features
@@ -41,12 +46,22 @@ def read_tfrecord(filename_queue):
     features = tf.parse_single_example(serialized_example, features=feature)
 
     image  = tf.decode_raw(features['image/encoded'], tf.uint8)
+    image  = tf.cast(image, tf.float32)
     height = tf.cast(features['image/height'],tf.int32)
     width  = tf.cast(features['image/width'], tf.int32)
     label  = tf.cast(features['image/label'], tf.int32)
     img = tf.reshape(image, [height, width, 3])
 
     # preprocess
+    # subtract mean value
+    rgb_mean=np.array([123.68, 116.779, 103.939])
+    img = tf.subtract(img, rgb_mean)
+    # red, green, blue = tf.split(3, 3, img)
+    # img = tf.concat(3, [
+    #     tf.subtract(red , bgr_mean[2]),
+    #     tf.subtract(green , bgr_mean[1]),
+    #     tf.subtract(blue , bgr_mean[0]),
+    # ])
     # center_crop
     img = tf.image.resize_images(img, [256, 256])
     j = int(round((256 - 224) / 2.))

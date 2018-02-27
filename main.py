@@ -5,6 +5,7 @@ import tensorflow as tf
 import os
 import glob
 import time
+import numpy as np
 from scipy.misc import imread, imresize
 
 
@@ -71,9 +72,30 @@ def main():
         model._train()
     else:
         # restore model
-        saver = tf.train.import_meta_graph(
-            os.path.join(args.checkpoint_dir,args.model_name+'-200.meta'))
-        saver.restore(sess, tf.train.latest_checkpoint(args.checkpoint_dir))
+        # saver = tf.train.import_meta_graph(
+        #    os.path.join(args.checkpoint_dir,args.model_name+'-4000.meta'))
+        # saver.restore(sess, tf.train.latest_checkpoint(args.checkpoint_dir))
+
+        #
+        model=MobileNetV2(sess=sess, tf_files='', num_sampes=args.num_samples,
+                      epoch=args.epoch, batch_size=args.batch_size,
+                      image_height=args.image_height, image_width=args.image_width,
+                      n_classes=args.n_classes,
+                      is_train=args.is_train, learning_rate=args.learning_rate,
+                      lr_decay=args.lr_decay,beta1=args.beta1,
+                      chkpt_dir=args.checkpoint_dir, logs_dir=args.logs_dir,
+                      model_name=args.model_name, rand_crop=args.rand_crop)
+        model._build_test_graph()
+        saver=tf.train.Saver()
+        ckpt = tf.train.get_checkpoint_state(args.checkpoint_dir)
+        import re
+        if ckpt and ckpt.model_checkpoint_path:
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            saver.restore(sess, os.path.join(args.checkpoint_dir, ckpt_name))
+            counter = int(next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
+            print("[*] Success to read {}".format(ckpt_name))
+        else:
+            print("[*] Failed to find a checkpoint")
 
         # get input and output tensors from graph
         graph = tf.get_default_graph()
@@ -82,15 +104,16 @@ def main():
         prob = graph.get_tensor_by_name("mobilenetv2/prob:0")
 
         # prepare eval/test data and label
-        img=imread('data/tmp/art01.jpg')
-        img=preprocess(img)
+        img=imread('data/test/t_1_0.jpeg')
         img = imresize(img, (args.image_height, args.image_width))
+        img=preprocess(img)
+        print(img.dtype)
         label=1
         feed_dict={input_x:[img],input_y:[label]} # use [], because we need 4-D tensor
 
         start=time.time()
         res=sess.run(prob, feed_dict=feed_dict)[0] # index 0 for batch_size
-        print('prob: {}'.format(res))
+        print('prob: {}, class: {}'.format(res, np.argmax(res)))
         print('time: {}'.format(time.time()-start))
 
 

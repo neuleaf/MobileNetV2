@@ -6,13 +6,12 @@ def relu(x, name='relu6'):
 
 
 def batch_norm(x, momentum=0.9, epsilon=1e-5, train=True, name='bn'):
-    return tf.contrib.layers.batch_norm(x,
-                      decay=momentum,
-                      updates_collections=None,
+    return tf.layers.batch_normalization(x,
+                      momentum=momentum,
                       epsilon=epsilon,
                       scale=True,
-                      is_training=train,
-                      scope=name)
+                      training=train,
+                      name=name)
 
 
 def conv2d(input_, output_dim, k_h, k_w, d_h, d_w, stddev=0.02, name='conv2d', bias=False):
