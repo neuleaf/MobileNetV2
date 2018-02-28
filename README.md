@@ -10,12 +10,12 @@
 
 2. 训练
    
-   run `python main.py --epoch 10 --dataset_dir ./tfrecords --n_classes 2 --batch_size 4 --num_samples 20000 [--options]`启动训练.
+   run `python main.py --epoch 10 --dataset_dir ./tfrecords --n_classes 10 --batch_size 4 --num_samples 20000 [--options]`启动训练.
    注意更改参数
 3. test/infer
 
     测试时需要指定`--no_train`，如：
-   `python main.py --no_train`
+   `python main.py --n_classe 10 --no_train`
 
 ## Task2 detection
 

@@ -7,8 +7,8 @@ def preprocess(image):
     # subtract mean
     mean=np.array([123.68, 116.779, 103.939])
     image=image-mean
-    # scale to [-1, 1]
-    img = 2.0 / 255.0 * image - 1.0
+    # scale to 1
+    img = image * 0.017
     # return value should be float!
     return img
 
@@ -53,7 +53,7 @@ def read_tfrecord(filename_queue):
     img = tf.reshape(image, [height, width, 3])
 
     # preprocess
-    # subtract mean value
+    # subtract mean valu
     rgb_mean=np.array([123.68, 116.779, 103.939])
     img = tf.subtract(img, rgb_mean)
     # red, green, blue = tf.split(3, 3, img)
@@ -68,7 +68,8 @@ def read_tfrecord(filename_queue):
     i = int(round((256 - 224) / 2.))
     img = img[j:j+224, i:i+224, :]
 
-    img = tf.cast(img, tf.float32) * (2. / 255) - 1.0
+    # scale to 1
+    img = tf.cast(img, tf.float32) * 0.017
 
     return img, label
 
