@@ -29,7 +29,7 @@ class MobileNetV2(object):
 
     def _build_train_graph(self):
         self.x_=tf.placeholder(tf.float32, [None, self.h, self.w, 3], name='input')
-        self.y_=tf.placeholder(tf.int64, [None], name='label')
+        self.y_=tf.placeholder(tf.int32, [None], name='label')
 
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
 
@@ -70,7 +70,7 @@ class MobileNetV2(object):
 
     def _build_test_graph(self):
         self.x_ = tf.placeholder(tf.float32, [None, self.h, self.w, 3], name='input')
-        self.y_ = tf.placeholder(tf.int64, [None], name='label')
+        self.y_ = tf.placeholder(tf.int32, [None], name='label')
         _, _ = self._nets(self.x_, is_train=False)
 
     def _nets(self, X, is_train, reuse=False):
@@ -217,6 +217,8 @@ class MobileNetV2(object):
         '''
 
         # save the last model when finish training
+        # graph pb file, need when freeze model
+        tf.train.write_graph(sess.graph_def, self.checkpoint_dir, self.model_name+'.pb')
         save_path=saver.save(self.sess, os.path.join(self.checkpoint_dir, self.model_name), global_step= step)
         print('Final model saved in '+save_path)
         print('FINISHED TRAINING.')

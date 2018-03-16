@@ -99,7 +99,7 @@ def main():
         # prepare eval/test data and label
         img=imread('data/test/t_1_0.jpeg')
         img = imresize(img, (args.image_height, args.image_width))
-        img=preprocess(img)
+        img=preprocess(img).astype(np.float32)
         print(img.dtype)
         label=1
         feed_dict={input_x:[img],input_y:[label]} # use [], because we need 4-D tensor
@@ -108,6 +108,8 @@ def main():
         res=sess.run(prob, feed_dict=feed_dict)[0] # index 0 for batch_size
         print('prob: {}, class: {}'.format(res, np.argmax(res)))
         print('time: {}'.format(time.time()-start))
+    # close session
+    sess.close()
 
 
 if __name__=='__main__':
