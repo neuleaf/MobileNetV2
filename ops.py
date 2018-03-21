@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+weight_decay=1e-4
 
 def relu(x, name='relu6'):
     return tf.nn.relu6(x, name)
@@ -15,15 +16,16 @@ def batch_norm(x, momentum=0.9, epsilon=1e-5, train=True, name='bn'):
 
 
 def conv2d(input_, output_dim, k_h, k_w, d_h, d_w, stddev=0.02, name='conv2d', bias=False):
-  with tf.variable_scope(name):
-    w = tf.get_variable('w', [k_h, k_w, input_.get_shape()[-1], output_dim],
+    with tf.variable_scope(name):
+        w = tf.get_variable('w', [k_h, k_w, input_.get_shape()[-1], output_dim],
+              regularizer=tf.contrib.layers.l2_regularizer(weight_decay),
               initializer=tf.truncated_normal_initializer(stddev=stddev))
-    conv = tf.nn.conv2d(input_, w, strides=[1, d_h, d_w, 1], padding='SAME')
-    if bias:
-        biases = tf.get_variable('bias', [output_dim], initializer=tf.constant_initializer(0.0))
-        conv = tf.nn.bias_add(conv, biases)
+        conv = tf.nn.conv2d(input_, w, strides=[1, d_h, d_w, 1], padding='SAME')
+        if bias:
+            biases = tf.get_variable('bias', [output_dim], initializer=tf.constant_initializer(0.0))
+            conv = tf.nn.bias_add(conv, biases)
 
-    return conv
+        return conv
 
 
 def conv2d_block(input, out_dim, k, s, is_train, name):
@@ -51,6 +53,7 @@ def dwise_conv(input, k_h=3, k_w=3, channel_multiplier= 1, strides=[1,1,1,1],
     with tf.variable_scope(name):
         in_channel=input.get_shape().as_list()[-1]
         w = tf.get_variable('w', [k_h, k_w, in_channel, channel_multiplier],
+                        regularizer=tf.contrib.layers.l2_regularizer(weight_decay),
                         initializer=tf.truncated_normal_initializer(stddev=stddev))
         conv = tf.nn.depthwise_conv2d(input, w, strides, padding, rate=None,name=None,data_format=None)
         if bias:
@@ -91,9 +94,11 @@ def separable_conv(input, k_size, output_dim, stride, pad='SAME', channel_multip
     with tf.name_scope(name), tf.variable_scope(name):
         in_channel = input.get_shape().as_list()[-1]
         dwise_filter = tf.get_variable('dw', [k_size, k_size, in_channel, channel_multiplier],
+                  regularizer=tf.contrib.layers.l2_regularizer(weight_decay),
                   initializer=tf.truncated_normal_initializer(stddev=0.02))
 
         pwise_filter = tf.get_variable('pw', [1, 1, in_channel*channel_multiplier, output_dim],
+                  regularizer=tf.contrib.layers.l2_regularizer(weight_decay),
                   initializer=tf.truncated_normal_initializer(stddev=0.02))
         strides = [1,stride, stride,1]
 
