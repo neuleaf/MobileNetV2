@@ -118,3 +118,9 @@ def global_avg(x):
 def flatten(x):
     #flattened=tf.reshape(input,[x.get_shape().as_list()[0], -1])  # or, tf.layers.flatten(x)
     return tf.contrib.layers.flatten(x)
+
+
+def pad2d(inputs, pad=(0, 0), mode='CONSTANT'):
+    paddings = [[0, 0], [pad[0], pad[0]], [pad[1], pad[1]], [0, 0]]
+    net = tf.pad(inputs, paddings, mode=mode)
+    return net
