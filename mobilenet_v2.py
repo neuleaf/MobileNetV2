@@ -16,12 +16,12 @@ def mobilenetv2(inputs, num_classes, is_train=True, reuse=False):
         net = res_block(net, exp, 32, 1, is_train, name='res4_2')
         net = res_block(net, exp, 32, 1, is_train, name='res4_3')
 
-        net = res_block(net, exp, 64, 1, is_train, name='res5_1')
+        net = res_block(net, exp, 64, 2, is_train, name='res5_1')
         net = res_block(net, exp, 64, 1, is_train, name='res5_2')
         net = res_block(net, exp, 64, 1, is_train, name='res5_3')
         net = res_block(net, exp, 64, 1, is_train, name='res5_4')
 
-        net = res_block(net, exp, 96, 2, is_train, name='res6_1')  # size/16
+        net = res_block(net, exp, 96, 1, is_train, name='res6_1')  # size/16
         net = res_block(net, exp, 96, 1, is_train, name='res6_2')
         net = res_block(net, exp, 96, 1, is_train, name='res6_3')
 
