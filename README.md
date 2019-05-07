@@ -1,3 +1,8 @@
+# Note
+- update 2019.05.06
+Tensorflow的API发生了很大变化，原来的代码已经不实用。而且TF官方models也开源了相关的代码。
+此项目不再更新，并且已删除了部分代码，只留下网络结构代码，有需要可供参考。
+
 # MobileNet V2 with Tensorflow
 论文链接 https://arxiv.org/abs/1801.04381
 ## Task1 classification
